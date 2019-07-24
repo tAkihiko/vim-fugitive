@@ -4376,9 +4376,13 @@ function! s:BlameCommand(line1, line2, range, count, bang, mods, reg, arg, args)
         endif
         let top = line('w0') + &scrolloff
         let current = line('.')
-        let temp = s:Resolve(temp)
+        if has('win32')
+            let temp = iconv(s:Resolve(temp), 'cp932', &enc)
+        else
+            let temp = s:Resolve(temp)
+        endif
         let s:temp_files[s:cpath(temp)] = { 'dir': s:Dir(), 'filetype': 'fugitiveblame', 'args': cmd, 'bufnr': bufnr }
-        exe 'keepalt' (a:bang ? 'split' : 'leftabove vsplit') s:fnameescape(temp)
+        exe 'keepalt' (a:bang ? 'split' : 'leftabove vsplit') '++enc=utf-8' s:fnameescape(temp)
         let b:fugitive_blamed_bufnr = bufnr
         let b:fugitive_type = 'blame'
         let w:fugitive_leave = restore
