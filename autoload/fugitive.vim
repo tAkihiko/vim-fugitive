@@ -420,6 +420,14 @@ endfunction
 
 function! s:SystemError(cmd, ...) abort
   try
+    if &shellredir ==# '>' && &shell =~# 'sh\|cmd'
+      let shellredir = &shellredir
+      if &shell =~# 'csh'
+        set shellredir=>&
+      else
+        set shellredir=>%s\ 2>&1
+      endif
+    endif
     let out = call('system', [type(a:cmd) ==# type([]) ? fugitive#Prepare(a:cmd) : a:cmd] + a:000)
     return [out, v:shell_error]
   catch /^Vim\%((\a\+)\)\=:E484:/
@@ -427,6 +435,10 @@ function! s:SystemError(cmd, ...) abort
     call filter(opts, 'exists("+".v:val) && !empty(eval("&".v:val))')
     call map(opts, 'v:val."=".eval("&".v:val)')
     call s:throw('failed to run `' . a:cmd . '` with ' . join(opts, ' '))
+  finally
+    if exists('shellredir')
+      let &shellredir = shellredir
+    endif
   endtry
 endfunction
 
@@ -1006,15 +1018,9 @@ function! s:ExpandVar(other, var, flags, esc, ...) abort
 endfunction
 
 function! s:Expand(rev, ...) abort
-  if a:rev =~# '^:0$'
-    call s:throw('Use ' . string(':%') . ' instead of ' . string(a:rev))
-  elseif a:rev =~# '^:[1-3]$'
-    call s:throw('Use ' . string(a:rev . ':%') . ' instead of ' . string(a:rev))
-  elseif a:rev =~# '^@{' || a:rev =~# '^\^[0-9~^{]\|^\~[0-9~^]\|^\^$'
-    call s:throw('Use ' . string('!' . a:rev . ':%') . ' instead of ' . string(a:rev))
-  elseif a:rev =~# '^-'
-    call s:throw('Use ' . string('!' . a:rev[1:-1] . ':%') . ' instead of ' . string(a:rev))
-  elseif a:rev =~# '^>[~^]\|^>@{\|^>:\d$'
+  if a:rev =~# '^:[0-3]$'
+    let file = a:rev . ':%'
+  elseif a:rev =~# '^>[~^]\|^>@{\|^>$'
     let file = 'HEAD' . a:rev[1:-1] . ':%'
   elseif a:rev =~# '^>[> ]\@!'
     let file = a:rev[1:-1] . ':%'
@@ -1799,17 +1805,18 @@ function! fugitive#BufReadStatus() abort
     nnoremap <buffer> <silent> a :<C-U>execute <SID>Do('Toggle',0)<CR>
     nnoremap <buffer> <silent> i :<C-U>execute <SID>NextExpandedHunk(v:count1)<CR>
     exe 'nnoremap <buffer> <silent>' nowait "= :<C-U>execute <SID>StageInline('toggle',line('.'),v:count)<CR>"
-    exe 'nnoremap <buffer> <silent>' nowait "< :<C-U>execute <SID>StageInline('show',  line('.'),v:count)<CR>"
-    exe 'nnoremap <buffer> <silent>' nowait "> :<C-U>execute <SID>StageInline('hide',  line('.'),v:count)<CR>"
+    exe 'nnoremap <buffer> <silent>' nowait "< :<C-U>execute <SID>StageInline('hide',  line('.'),v:count)<CR>"
+    exe 'nnoremap <buffer> <silent>' nowait "> :<C-U>execute <SID>StageInline('show',  line('.'),v:count)<CR>"
     exe 'xnoremap <buffer> <silent>' nowait "= :<C-U>execute <SID>StageInline('toggle',line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>"
-    exe 'xnoremap <buffer> <silent>' nowait "< :<C-U>execute <SID>StageInline('show',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>"
-    exe 'xnoremap <buffer> <silent>' nowait "> :<C-U>execute <SID>StageInline('hide',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>"
-    nnoremap <buffer> <silent> D :<C-U>execute <SID>StageDiff('Gdiffsplit')<CR>
-    nnoremap <buffer> <silent> dd :<C-U>execute <SID>StageDiff('Gdiffsplit')<CR>
-    nnoremap <buffer> <silent> dh :<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>
-    nnoremap <buffer> <silent> ds :<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>
+    exe 'xnoremap <buffer> <silent>' nowait "< :<C-U>execute <SID>StageInline('hide',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>"
+    exe 'xnoremap <buffer> <silent>' nowait "> :<C-U>execute <SID>StageInline('show',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>"
+    nnoremap <buffer> <silent> D :<C-U>execute <SID>StageDiff('Gdiffsplit!')<Bar>redraw<Bar>echohl WarningMsg<Bar> echo ':Gstatus D is deprecated in favor of dd'<Bar>echohl NONE<CR>
+    nnoremap <buffer> <silent> dd :<C-U>execute <SID>StageDiff('Gdiffsplit!')<CR>
+    nnoremap <buffer> <silent> dh :<C-U>execute <SID>StageDiff('Ghdiffsplit!')<CR>
+    nnoremap <buffer> <silent> ds :<C-U>execute <SID>StageDiff('Ghdiffsplit!')<CR>
     nnoremap <buffer> <silent> dp :<C-U>execute <SID>StageDiffEdit()<CR>
-    nnoremap <buffer> <silent> dv :<C-U>execute <SID>StageDiff('Gvdiffsplit')<CR>
+    nnoremap <buffer> <silent> dv :<C-U>execute <SID>StageDiff('Gvdiffsplit!')<CR>
+    nnoremap <buffer> <silent> d? :<C-U>help fugitive_d<CR>
     nnoremap <buffer> <silent> P :<C-U>execute <SID>StagePatch(line('.'),line('.')+v:count1-1)<CR>
     xnoremap <buffer> <silent> P :<C-U>execute <SID>StagePatch(line("'<"),line("'>"))<CR>
     if empty(mapcheck('q', 'n'))
@@ -1821,9 +1828,10 @@ function! fugitive#BufReadStatus() abort
     xnoremap <buffer> <silent> g<Bar> :<C-U>echoerr 'Changed to X'<CR>
     nnoremap <buffer> <silent> X :<C-U>execute <SID>StageDelete(line('.'), 0, v:count)<CR>
     xnoremap <buffer> <silent> X :<C-U>execute <SID>StageDelete(line("'<"), line("'>"), v:count)<CR>
+    nnoremap <buffer> <silent> gI :<C-U>execute <SID>StageIgnore(line('.'), line('.'), v:count)<CR>
+    xnoremap <buffer> <silent> gI :<C-U>execute <SID>StageIgnore(line("'<"), line("'>"), v:count)<CR>
     nnoremap <buffer>          . :<C-U> <C-R>=<SID>StageArgs(0)<CR><Home>
     xnoremap <buffer>          . :<C-U> <C-R>=<SID>StageArgs(1)<CR><Home>
-    nnoremap <buffer> <silent> <F1> :help fugitive-mappings<CR>
     setlocal filetype=fugitive
 
     for [lnum, section] in [[staged_end, 'Staged'], [unstaged_end, 'Unstaged']]
@@ -2854,6 +2862,23 @@ function! s:StageDelete(lnum1, lnum2, count) abort
         \ string('To restore, :Gedit ' . info.relative[0] . '|Gread ' . hash[0:6])
 endfunction
 
+function! s:StageIgnore(lnum1, lnum2, count) abort
+  let paths = []
+  for info in s:Selection(a:lnum1, a:lnum2)
+    call extend(paths, info.relative)
+  endfor
+  call map(paths, '"/" . v:val')
+  exe 'Gsplit' (a:count ? '.gitignore' : '.git/info/exclude')
+  let last = line('$')
+  if last == 1 && empty(getline(1))
+    call setline(last, paths)
+  else
+    call append(last, paths)
+    exe last + 1
+  endif
+  return ''
+endfunction
+
 function! s:DoToggleHeadHeader(value) abort
   exe 'edit' s:fnameescape(s:Dir())
   call search('\C^index$', 'wc')
@@ -3092,7 +3117,7 @@ function! s:CommitCommand(line1, line2, range, count, bang, mods, reg, arg, args
         return '1' . after
       elseif empty(errors)
         let out = readfile(outfile)
-        echo get(out, -1, '') =~# 'stash\|\d' ? get(out, -2, '') : out[-1]
+        echo get(out, -1, '') =~# 'stash\|\d' ? get(out, -2, '') : get(out, -1, '')
         return after[1:-1]
       else
         echo join(errors, "\n")
@@ -3794,7 +3819,7 @@ function! s:WriteCommand(line1, line2, range, count, bang, mods, reg, arg, args)
   if file =~# '^fugitive:'
     return 'write' . (a:bang ? '! ' : ' ') . s:fnameescape(file)
   endif
-  let always_permitted = s:cpath(fugitive#Real(@%), file) && s:DirCommitFile(@%)[1] =~# '^0\=$'
+  let always_permitted = s:cpath(fugitive#Real(@%), file) && empty(s:DirCommitFile(@%)[1])
   if !always_permitted && !a:bang && (len(s:TreeChomp('diff', '--name-status', 'HEAD', '--', file)) || len(s:TreeChomp('ls-files', '--others', '--', file)))
     let v:errmsg = 'fugitive: file has uncommitted changes (use ! to override)'
     return 'echoerr v:errmsg'
@@ -3808,7 +3833,7 @@ function! s:WriteCommand(line1, line2, range, count, bang, mods, reg, arg, args)
 
   if treebufnr > 0 && treebufnr != bufnr('')
     let temp = tempname()
-    silent execute '%write '.temp
+    silent execute 'keepalt %write '.temp
     for tab in [mytab] + range(1,tabpagenr('$'))
       for winnr in range(1,tabpagewinnr(tab,'$'))
         if tabpagebuflist(tab)[winnr-1] == treebufnr
@@ -4881,14 +4906,15 @@ function! fugitive#MapJumps(...) abort
     nnoremap <buffer> <silent> P     :<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'^'.v:count1.<SID>Relative(':'))<CR>
     nnoremap <buffer> <silent> ~     :<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'~'.v:count1.<SID>Relative(':'))<CR>
     nnoremap <buffer> <silent> C     :<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>
-    nnoremap <buffer> <silent> co    :<C-U>echoerr 'Use CTRL-W sC'<CR>
     nnoremap <buffer> <silent> cp    :<C-U>echoerr 'Use gC'<CR>
     nnoremap <buffer> <silent> gC    :<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>
     nnoremap <buffer> <silent> gc    :<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>
+    nnoremap <buffer> <silent> gi    :<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.git/info/exclude')<CR>
 
-    nnoremap <buffer>          c-    :Gcommit -
     nnoremap <buffer>       c<Space> :Gcommit<Space>
     nnoremap <buffer>          c<CR> :Gcommit<CR>
+    nnoremap <buffer>      cv<Space> :Gcommit -v<Space>
+    nnoremap <buffer>         cv<CR> :Gcommit -v<CR>
     nnoremap <buffer> <silent> ca    :<C-U>Gcommit --amend<CR>
     nnoremap <buffer> <silent> cc    :<C-U>Gcommit<CR>
     nnoremap <buffer> <silent> ce    :<C-U>Gcommit --amend --no-edit<CR>
@@ -4911,7 +4937,15 @@ function! fugitive#MapJumps(...) abort
     nnoremap <buffer> <silent> czz   :<C-U>exe <SID>EchoExec(['stash'] + (v:count > 1 ? ['--all'] : v:count ? ['--include-untracked'] : []))<CR>
     nnoremap <buffer> <silent> cz?   :<C-U>help fugitive_cz<CR>
 
-    nnoremap <buffer>          r-    :Grebase -
+    nnoremap <buffer>      co<Space> :G checkout<Space>
+    nnoremap <buffer>         co<CR> :G checkout<CR>
+    nnoremap <buffer>          coo   :exe <SID>EchoExec(['checkout'] + split(<SID>SquashArgument()) + ['--'])<CR>
+    nnoremap <buffer>          co?   :<C-U>help fugitive_co<CR>
+
+    nnoremap <buffer>      cb<Space> :G branch<Space>
+    nnoremap <buffer>         cb<CR> :G branch<CR>
+    nnoremap <buffer>         cb?    :<C-U>help fugitive_cb<CR>
+
     nnoremap <buffer>       r<Space> :Grebase<Space>
     nnoremap <buffer>          r<CR> :Grebase<CR>
     nnoremap <buffer> <silent> ri    :<C-U>Grebase --interactive<C-R>=<SID>RebaseArgument()<CR><CR>
@@ -4932,6 +4966,7 @@ function! fugitive#MapJumps(...) abort
     nnoremap <buffer>          .     :<C-U> <C-R>=<SID>fnameescape(fugitive#Real(@%))<CR><Home>
     xnoremap <buffer>          .     :<C-U> <C-R>=<SID>fnameescape(fugitive#Real(@%))<CR><Home>
     nnoremap <buffer> <silent> g?    :<C-U>help fugitive-mappings<CR>
+    nnoremap <buffer> <silent> <F1>  :<C-U>help fugitive-mappings<CR>
   endif
 endfunction
 
@@ -5153,8 +5188,8 @@ function! s:GF(mode) abort
   endtry
   if len(results) > 1
     return 'G' . a:mode .
-          \ ' +' . escape(join(results[1:-1], '|'), '| ') . ' ' .
-          \ s:fnameescape(results[0])
+          \ ' +' . escape(results[1], ' ') . ' ' .
+          \ s:fnameescape(results[0]) . join(map(results[2:-1], '"|" . v:val'), '')
   elseif len(results) && len(results[0])
     return 'G' . a:mode . ' ' . s:fnameescape(results[0])
   else
