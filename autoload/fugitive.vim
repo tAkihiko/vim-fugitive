@@ -4166,6 +4166,7 @@ endfunction
 augroup fugitive_commit
   autocmd!
   autocmd VimLeavePre,BufDelete COMMIT_EDITMSG execute substitute(s:FinishCommit(), '\C^echoerr \(''[^'']*''\)*', 'redraw|echohl ErrorMsg|echo \1|echohl NONE', '')
+  autocmd FileType gitcommit if &enc != 'utf-8' | setlocal fenc=utf-8 nomod | endif
 augroup END
 
 " Section: :Gpush, :Gfetch
