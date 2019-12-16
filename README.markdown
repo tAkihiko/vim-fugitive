@@ -4,8 +4,8 @@ I'm not going to lie to you; fugitive.vim may very well be the best
 Git wrapper of all time.  Check out these features:
 
 Bring up an enhanced version of `git status` with `:G` (also known as
-`:Gstatus`).  Press `g?` to bring up a list of mappings for numerous
-operations including diffing, staging, committing, rebasing, and stashing.
+`:Gstatus`).  Press `g?` to bring up a list of maps for numerous operations
+including diffing, staging, committing, rebasing, and stashing.
 
 View any blob, tree, commit, or tag in the repository with `:Gedit` (and
 `:Gsplit`, `:Gvsplit`, `:Gtabedit`, ...).  Edit a file in the index and
@@ -29,8 +29,9 @@ the buffer.
 
 Use `:Ggrep` to search the work tree (or any arbitrary commit) with
 `git grep`, skipping over that which is not tracked in the repository.
-`:Glog` loads all previous revisions of a file into the quickfix list so
-you can iterate over them and watch the file evolve.
+`:Gclog` and `:Gllog` load all previous commits into the quickfix or location
+list.  Give them a range (e.g., using visual mode and `:'<,'>Gclog`) to
+iterate over every change to that portion of the current file.
 
 `:Gread` is a variant of `git checkout -- filename` that operates on the
 buffer rather than the filename.  This means you can use `u` to undo it
@@ -42,19 +43,21 @@ making it like `git add` when called from a work tree file and like
 Use `:Gbrowse` to open the current file on the web front-end of your favorite
 hosting provider, with optional line range (try it in visual mode).  Plugins
 are available for popular providers such as [GitHub][rhubarb.vim],
-[GitLab][fugitive-gitlab.vim], [Bitbucket][fubitive.vim], and
-[Gitee][fugitive-gitee.vim].
+[GitLab][fugitive-gitlab.vim], [Bitbucket][fubitive.vim],
+[Gitee][fugitive-gitee.vim], and [Pagure][pagure].
 
 [rhubarb.vim]: https://github.com/tpope/vim-rhubarb
 [fugitive-gitlab.vim]: https://github.com/shumphrey/fugitive-gitlab.vim
 [fubitive.vim]: https://github.com/tommcdo/vim-fubitive
 [fugitive-gitee.vim]: https://github.com/linuxsuren/fugitive-gitee.vim
+[pagure]: https://github.com/FrostyX/vim-fugitive-pagure
 
 Add `%{FugitiveStatusline()}` to `'statusline'` to get an indicator
 with the current branch in your statusline.
 
-Last but not least, there's `:Git` for running any arbitrary command,
-and `Git!` to open the output of a command in a temp file.
+Last but not least, there's `:Git` for running any arbitrary command.
+
+For more information, see `:help fugitive`.
 
 ## Screencasts
 
@@ -75,12 +78,6 @@ and paste:
     vim -u NONE -c "helptags vim-fugitive/doc" -c q
 
 ## FAQ
-
-> Why don't any of the commands exist?
-
-Fugitive cares about the current file, not the current working directory.
-Edit a file from the repository.  To avoid the blank window problem, favor
-commands like `:split` and `:tabedit` over commands like `:new` and `:tabnew`.
 
 > Why can't I enter my password when I `:Gpush`?
 
