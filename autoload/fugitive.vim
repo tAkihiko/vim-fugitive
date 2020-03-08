@@ -6348,4 +6348,13 @@ function! fugitive#detect(path) abort
   return FugitiveDetect(a:path)
 endfunction
 
+function! fugitive#GetFileencoding() abort
+	let fenc = &fenc
+	if fenc =~? 'sjis\|cp932\|shift[\_]\?jis'
+		return 'sjis'
+	else
+		return 'utf-8'
+	endif
+endfunction
+
 " Section: End
